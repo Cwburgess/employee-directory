@@ -112,10 +112,10 @@ export default function EmployeeDetail({
           </Avatar>
 
           <div className="min-w-0">
-            <h1 className="text-2xl font-bold leading-tight break-words">
+            <h1 className="text-2xl font-bold leading-tight wrap-break-word">
               {name}
             </h1>
-            <p className="text-base text-muted-foreground break-words">
+            <p className="text-base text-muted-foreground wrap-break-word">
               {title}
             </p>
           </div>
@@ -162,7 +162,7 @@ function DetailRow({
   return (
     <div className="flex items-start gap-2">
       <span className="shrink-0 font-semibold">{label}:</span>
-      <span className="break-words">
+      <span className="wrap-break-word">
         {hasValue ? (
           isEmail ? (
             <a

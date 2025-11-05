@@ -3,49 +3,79 @@
 import * as React from "react";
 import type { CrewGroup } from "./types";
 
+// Helpers
+const isNonEmpty = (s?: string | null): s is string =>
+  !!s && s.trim().length > 0;
+
+// Treat as phone-like if it has 7+ digits after stripping non-digits
+const isPhoneLike = (s: string) => s.replace(/\D+/g, "").length >= 7;
+
+// Case-insensitive sort
+const ciSort = (a: string, b: string) =>
+  a.localeCompare(b, undefined, { sensitivity: "base" });
+
 export function useFilterOptions(groups: CrewGroup[], allowedCrews?: string[]) {
+  // Stable dependency for allowedCrews
   const allowedKey = React.useMemo(
     () => (allowedCrews ? allowedCrews.join("\u0001") : ""),
     [allowedCrews]
   );
 
-  const unitsList = React.useMemo(() => {
-    const s = new Set<string>();
-    for (const g of groups) s.add(g.unit);
-    return Array.from(s).sort((a, b) => a.localeCompare(b));
-  }, [groups]);
+  // Build everything in one pass so "unitsList" can be derived from *allowed* crews only
+  const { unitsList, crewsByUnit, allCrewNames, locationsList } =
+    React.useMemo(() => {
+      const allowed =
+        allowedCrews && allowedCrews.length ? new Set(allowedCrews) : null;
 
-  const crewsByUnit = React.useMemo(() => {
-    const map = new Map<string, string[]>();
-    for (const g of groups) {
-      if (allowedCrews && !allowedCrews.includes(g.crew)) continue;
-      if (!map.has(g.unit)) map.set(g.unit, []);
-      map.get(g.unit)!.push(g.crew);
-    }
-    for (const [u, arr] of map) {
-      map.set(
-        u,
-        Array.from(new Set(arr)).sort((a, b) => a.localeCompare(b))
-      );
-    }
-    return map;
-  }, [groups, allowedKey]);
+      const unitsSet = new Set<string>();
+      const crewsByUnitSet = new Map<string, Set<string>>();
+      const allCrewsSet = new Set<string>();
+      const locationsSet = new Set<string>();
 
-  const allCrewNames = React.useMemo(() => {
-    const s = new Set<string>();
-    for (const g of groups) {
-      if (allowedCrews && !allowedCrews.includes(g.crew)) continue;
-      s.add(g.crew);
-    }
-    return Array.from(s).sort((a, b) => a.localeCompare(b));
-  }, [groups, allowedKey]);
+      for (const g of groups || []) {
+        const unit = (g.unit || "Unassigned").trim();
+        const crew = (g.crew || "Unassigned").trim();
 
-  const locationsList = React.useMemo(() => {
-    const s = new Set<string>();
-    for (const g of groups)
-      for (const m of g.members || []) if (m.location) s.add(m.location);
-    return Array.from(s).sort((a, b) => a.localeCompare(b));
-  }, [groups]);
+        // Respect allowedCrews for unit/crew population
+        const crewAllowed = !allowed || allowed.has(crew);
+        if (crewAllowed) {
+          unitsSet.add(unit);
+
+          if (!crewsByUnitSet.has(unit)) crewsByUnitSet.set(unit, new Set());
+          crewsByUnitSet.get(unit)!.add(crew);
+
+          allCrewsSet.add(crew);
+        }
+
+        // Collect locations from members; exclude phone-like / junk values
+        for (const m of g.members || []) {
+          const loc = (m.location || "").trim();
+          if (
+            isNonEmpty(loc) &&
+            !isPhoneLike(loc) &&
+            !/^\d+$/.test(loc) && // purely numeric
+            loc.toLowerCase() !== "null"
+          ) {
+            locationsSet.add(loc);
+          }
+        }
+      }
+
+      // Finalize crewsByUnit and prune units with zero crews
+      const crewsByUnit = new Map<string, string[]>();
+      for (const [unit, crewSet] of crewsByUnitSet) {
+        crewsByUnit.set(unit, Array.from(crewSet).sort(ciSort));
+      }
+
+      const unitsList = Array.from(unitsSet)
+        .filter((u) => (crewsByUnit.get(u)?.length ?? 0) > 0)
+        .sort(ciSort);
+
+      const allCrewNames = Array.from(allCrewsSet).sort(ciSort);
+      const locationsList = Array.from(locationsSet).sort(ciSort);
+
+      return { unitsList, crewsByUnit, allCrewNames, locationsList };
+    }, [groups, allowedKey]);
 
   return { unitsList, crewsByUnit, allCrewNames, locationsList };
 }

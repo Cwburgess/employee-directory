@@ -5,10 +5,7 @@ import EmployeeDirectoryHeader from "@/components/layout/EmployeeDirectoryHeader
 import EmployeeCard from "@/components/layout/EmployeeCard";
 import { Loader2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  type CrewGroup,
-  type EmployeeFilters,
-} from "@/components/layout/EmployeeFilterPanel2";
+import SpecialFiltersPlayground from "@/components/dev/SpecialFiltersPlayground";
 
 /* ---------------- Types aligned to your API ---------------- */
 
@@ -66,14 +63,6 @@ export default function EmployeeDirectoryPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-
-  const [filters, setFilters] = useState<EmployeeFilters>({
-    units: [],
-    crews: [],
-    locations: [],
-    onlyMyCrew: false,
-  });
-
   //const [specialPredicate, setSpecialPredicate] = useState(() => () => true);
   const [specialPredicate, setSpecialPredicate] = useState<
     (e: Employee) => boolean
@@ -87,12 +76,12 @@ export default function EmployeeDirectoryPage() {
   }, [specialPredicate]);
 
   const [selectedLetter, setSelectedLetter] = useState<string | null>(null);
-  // const [filters, setFilters] = useState<EmployeeFilters>({
-  //   units: [],
-  //   crews: [],
-  //   locations: [],
-  //   onlyMyCrew: false,
-  // });
+  const [filters, setFilters] = useState<EmployeeFilters>({
+    units: [],
+    crews: [],
+    locations: [],
+    onlyMyCrew: false,
+  });
 
   /* ---------------- Fetch grouped employee data (once) ---------------- */
 
@@ -196,7 +185,7 @@ export default function EmployeeDirectoryPage() {
       <EmployeeDirectoryHeader
         layout={layout}
         onLayoutChangeAction={setLayout}
-        groups={data} // pass the grouped data the panel uses for options
+        groups={data}
         onFiltersChangeAction={setFilters}
         onSearchChangeAction={setSearchQuery} // ✅ this must match the prop name
         showAlphaBar={layout === "list"}
@@ -205,13 +194,7 @@ export default function EmployeeDirectoryPage() {
         onLetterChangeAction={setSelectedLetter}
         sticky
         fullBleed
-        // ✅ The key: wrap the setter so React stores the function value
-        //onSpecialPredicateChangeAction={setSpecialPredicate}
-
-        onSpecialPredicateChangeAction={(pred) => {
-          console.log("%c[Page] storing special predicate", "color:#149386");
-          setSpecialPredicate(() => pred);
-        }}
+        onSpecialPredicateChangeAction={setSpecialPredicate}
       />
 
       {/* Loading */}

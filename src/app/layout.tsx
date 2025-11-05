@@ -1,12 +1,8 @@
-import type { Metadata } from "next";
 import { Poppins } from "next/font/google";
 import "@/app/globals.css";
 import { cn } from "../../lib/utils";
-//import NavBar from "../components/layout/NavBar";
-//import MainMenu from "@/components/layout/MainMenu";
 import SessionProviderWrapper from "@/components/layout/SessionProviderWrapper";
 import { ThemeProvider } from "next-themes";
-import DebugModalSegment from "@/components/DebugModalSegment";
 
 const poppins = Poppins({
   variable: "--font-poppins",
@@ -46,7 +42,7 @@ export default function RootLayout({
             disableTransitionOnChange
           >
             {/* Main content area */}
-            <main className="flex-grow">
+            <main className="grow">
               {children}
               {modal}
             </main>

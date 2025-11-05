@@ -24,7 +24,28 @@ function noStoreHeaders() {
   };
 }
 
+/**
+ * Minimal user shape we need from NextAuth.
+ * If you've extended the NextAuth session types elsewhere, this still works.
+ */
+type BasicUser = { name?: string | null; email?: string | null };
+
+function getUserKey(user: BasicUser | null | undefined): string | null {
+  const email = user?.email?.trim();
+  if (email) return email;
+  const name = user?.name?.trim();
+  return name ?? null;
+}
+
+// Row shapes for each query
+type MappedRow = { crew: string | null; team: string | null };
+type DirectoryRow = { crew: string | null; unit: string | null };
+type CrewRow = { CrewID: number; CrewName: string; DepartmentName: string };
+type TeamRow = { TeamName: string };
+
 export async function GET() {
+  let pool: sql.ConnectionPool | null = null;
+
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.name) {
@@ -32,19 +53,21 @@ export async function GET() {
     }
 
     const displayName = session.user.name; // e.g., "Clint Burgess"
-    const pool = await sql.connect(config);
+    pool = await sql.connect(config);
+
     // Prefer an explicit mapping first
-    const userKey = (session.user as any)?.email ?? session.user?.name ?? null;
+    const userKey = getUserKey(session.user);
     if (userKey) {
       const mapped = await pool.request().input("uk", sql.NVarChar, userKey)
-        .query(`
-      SELECT TOP 1 g.CrewName AS crew, t.TeamName AS team
-      FROM dbo.tUserTeams u
-      JOIN dbo.tGanntCrews g ON g.CrewID = u.CrewID
-      LEFT JOIN dbo.tTeams t ON t.TeamID = u.TeamID
-      WHERE u.UserKey = @uk
-      ORDER BY u.CreatedAtUtc DESC
-    `);
+        .query<MappedRow>(`
+          SELECT TOP 1 g.CrewName AS crew, t.TeamName AS team
+          FROM dbo.tUserTeams u
+          JOIN dbo.tGanntCrews g ON g.CrewID = u.CrewID
+          LEFT JOIN dbo.tTeams t ON t.TeamID = u.TeamID
+          WHERE u.UserKey = @uk
+          ORDER BY u.CreatedAtUtc DESC
+        `);
+
       if (mapped.recordset.length) {
         const { crew, team } = mapped.recordset[0];
         return NextResponse.json(
@@ -56,7 +79,7 @@ export async function GET() {
 
     // 1) Lookup user crew/unit from directory details
     const dir = await pool.request().input("name", sql.NVarChar, displayName)
-      .query(`
+      .query<DirectoryRow>(`
         SELECT TOP 1
           ed.Crew AS crew,
           ed.Unit AS unit
@@ -82,10 +105,10 @@ export async function GET() {
     }
 
     // 2) Resolve CrewID by CrewName; if duplicate names exist across departments,
-    //    we just pick TOP(1). (We can enhance later to use email/UPN mapping.)
+    //    we just pick TOP(1).
     const crewRow = await pool
       .request()
-      .input("crewName", sql.NVarChar, crewName).query(`
+      .input("crewName", sql.NVarChar, crewName).query<CrewRow>(`
         SELECT TOP 1 CrewID, CrewName, DepartmentName
         FROM dbo.tGanntCrews
         WHERE CrewName = @crewName
@@ -107,13 +130,14 @@ export async function GET() {
       const teamRow = await pool
         .request()
         .input("crewId", sql.Int, crewId)
-        .input("unit", sql.NVarChar, unit).query(`
+        .input("unit", sql.NVarChar, unit).query<TeamRow>(`
           SELECT TOP 1 TeamName
           FROM dbo.tTeams
           WHERE CrewID = @crewId AND TeamName = @unit
         `);
+
       if (teamRow.recordset.length > 0) {
-        team = teamRow.recordset[0].TeamName as string;
+        team = teamRow.recordset[0].TeamName;
       }
     }
 
@@ -128,5 +152,11 @@ export async function GET() {
   } catch (err) {
     console.error("GET /api/my-crew error:", err);
     return NextResponse.json({ error: "Lookup failed" }, { status: 500 });
+  } finally {
+    try {
+      await pool?.close();
+    } catch {
+      /* noop */
+    }
   }
 }

@@ -3,8 +3,6 @@ import { NextResponse } from "next/server";
 import sql from "mssql";
 import { clean } from "utils/clean";
 import { toExtension } from "utils/phone";
-
-// Avoid route caching
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
@@ -16,16 +14,65 @@ const config = {
   options: { encrypt: true, trustServerCertificate: false },
 };
 
+type EmployeeRow = {
+  ACHDEmpNo: number | string;
+  name: string | null;
+  jobtitle: string | null;
+  workphone: string | null;
+  number: string | null; // cell
+  email: string | null;
+  unit: string | null;
+  crew: string | null;
+  prdept: string | null;
+  location: string | null;
+  reportsto: string | null;
+  birthDate: string | null; // <-- NEW
+  hireDate: string | null; // <-- NEW
+};
+
+type DirectoryMember = {
+  ACHDEmpNo: string;
+  name: string;
+  firstName: string;
+  lastName: string;
+  jobtitle: string | null;
+  workphone: string | null;
+  extension: string | null;
+  number: string | null;
+  email: string | null;
+  unit: string;
+  crew: string;
+  prdept: string | null;
+  location: string | null;
+  reportsto: string | null;
+  birthDate: string | null; // <-- NEW
+  hireDate: string | null; // <-- NEW
+};
+
+type Group = {
+  unit: string;
+  crew: string;
+  members: DirectoryMember[];
+};
+
+const digitsOnly = (s?: string | null) => (s ?? "").replace(/\D+/g, "");
+
 export async function GET(req: Request) {
   let pool: sql.ConnectionPool | null = null;
 
   try {
     const { searchParams } = new URL(req.url);
-    const search = searchParams.get("search")?.trim().toLowerCase() ?? "";
+    const searchRaw = searchParams.get("search")?.trim() ?? "";
+    const search = searchRaw.toLowerCase();
+    const searchDigits = digitsOnly(searchRaw);
 
     pool = await sql.connect(config);
 
-    const result = await pool.request().query(`
+    const request = pool.request();
+    request.input("search", sql.NVarChar(sql.MAX), search);
+    request.input("searchDigits", sql.NVarChar(64), searchDigits);
+
+    const result = await request.query<EmployeeRow>(`
       SELECT 
         ed.PREmp     AS ACHDEmpNo,
         ed.Name      AS name,
@@ -37,38 +84,39 @@ export async function GET(req: Request) {
         ed.Crew      AS crew,
         ed.PRDept    AS prdept,
         ed.Location  AS location,
-        ed.Reviewer  AS reportsto
+        ed.Reviewer  AS reportsto,
+        ed.BirthDate AS birthDate,  -- <-- NEW COLUMN
+        ed.HireDate AS hireDate  -- <-- NEW COLUMN
       FROM dbo.tEmployeesDetails ed
       WHERE ed.Name NOT LIKE '%test%' 
         AND ed.Name NOT LIKE '%wireless%'
-      ORDER BY ed.Unit, ed.Crew, ed.Name
+        AND (
+          @search = '' OR
+          LOWER(ed.Name)     LIKE '%' + @search + '%' OR
+          LOWER(ed.JobTitle) LIKE '%' + @search + '%' OR
+          LOWER(ed.PRDept)   LIKE '%' + @search + '%' OR
+          LOWER(ed.Email)    LIKE '%' + @search + '%' OR
+          LOWER(ed.Unit)     LIKE '%' + @search + '%' OR
+          LOWER(ed.Crew)     LIKE '%' + @search + '%' OR
+          LOWER(ed.Location) LIKE '%' + @search + '%' OR
+          (
+            @searchDigits <> '' AND
+            (
+              REPLACE(REPLACE(REPLACE(REPLACE(ISNULL(ed.WorkPhone,''),'(',''),')',''),'-',''),' ','')
+                LIKE '%' + @searchDigits + '%' OR
+              REPLACE(REPLACE(REPLACE(REPLACE(ISNULL(ed.CellPhone,''),'(',''),')',''),'-',''),' ','')
+                LIKE '%' + @searchDigits + '%'
+            )
+          )
+        )
+      ORDER BY ed.Unit, ed.Crew, ed.Name;
     `);
 
-    const rows = result.recordset as any[];
+    const rows = result.recordset;
 
-    // Apply search filter client-side
+    const groupsMap = new Map<string, Group>();
 
-    const filteredRows = search
-      ? rows.filter((r) => {
-          const name = String(r.name || "").toLowerCase();
-          const job = String(r.jobtitle || "").toLowerCase();
-          const dept = String(r.prdept || "").toLowerCase();
-          const email = String(r.email || "").toLowerCase();
-          return (
-            name.includes(search) ||
-            job.includes(search) ||
-            dept.includes(search) ||
-            email.includes(search)
-          );
-        })
-      : rows;
-
-    const groupsMap = new Map<
-      string,
-      { unit: string; crew: string; members: any[] }
-    >();
-
-    const suffixes = new Set([
+    const suffixes = new Set<string>([
       "jr",
       "jr.",
       "sr",
@@ -78,7 +126,7 @@ export async function GET(req: Request) {
       "iv",
       "v",
     ]);
-    const splitName = (full = "") => {
+    const splitName = (full = ""): { first: string; last: string } => {
       const s = (full || "").trim().replace(/\s+/g, " ");
       if (!s) return { first: "", last: "" };
       if (s.includes(",")) {
@@ -97,32 +145,44 @@ export async function GET(req: Request) {
       };
     };
 
-    for (const r of filteredRows) {
-      const unit = clean(r.unit) || clean(r.prdept) || "Unassigned";
+    for (const r of rows) {
+      const unit = clean(r.unit) || "Unassigned";
       const crew = clean(r.crew) || "Unassigned";
       const key = `${unit}|||${crew}`;
 
       if (!groupsMap.has(key)) {
         groupsMap.set(key, { unit, crew, members: [] });
       }
+      const { first, last } = splitName(clean(r.name));
 
-      groupsMap.get(key)!.members.push({
+      const member: DirectoryMember = {
         ACHDEmpNo: String(r.ACHDEmpNo),
         name: clean(r.name),
+        firstName: first,
+        lastName: last,
         jobtitle: clean(r.jobtitle),
         workphone: r.workphone ?? null,
-        extension: toExtension(r.workphone, r.jobtitle),
-        number: clean(r.number),
-        email: clean(r.email),
+        extension: toExtension(r.workphone, r.jobtitle) ?? null,
+        number: clean(r.number) || null,
+        email: clean(r.email) || null,
         unit,
         crew,
         prdept: clean(r.prdept),
         location: clean(r.location),
         reportsto: clean(r.reportsto),
-      });
+        birthDate: r.birthDate
+          ? new Date(r.birthDate).toISOString().split("T")[0]
+          : null, // <-- formatted date
+
+        hireDate: r.hireDate
+          ? new Date(r.hireDate).toISOString().split("T")[0]
+          : null, // <-- NEW
+      };
+
+      groupsMap.get(key)!.members.push(member);
     }
 
-    const groups = Array.from(groupsMap.values());
+    const groups: Group[] = Array.from(groupsMap.values());
 
     groups.sort(
       (a, b) =>
@@ -140,6 +200,7 @@ export async function GET(req: Request) {
         return aF.localeCompare(bF);
       });
     }
+
     return NextResponse.json(groups, {
       headers: {
         "Cache-Control":

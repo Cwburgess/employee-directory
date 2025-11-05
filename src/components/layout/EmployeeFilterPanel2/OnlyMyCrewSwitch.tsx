@@ -6,13 +6,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 type Props = {
   onlyMyCrew: boolean;
   myCrew: string | null;
-  onChange: (checked: boolean) => void;
+  onChangeAction: (checked: boolean) => void;
 };
 
 export default function OnlyMyCrewSwitch({
   onlyMyCrew,
   myCrew,
-  onChange,
+  onChangeAction,
 }: Props) {
   return (
     <section>
@@ -20,7 +20,7 @@ export default function OnlyMyCrewSwitch({
         <Checkbox
           id="only-my-crew"
           checked={onlyMyCrew}
-          onCheckedChange={(v) => onChange(Boolean(v))}
+          onCheckedChange={(v) => onChangeAction(Boolean(v))}
         />
         <label htmlFor="only-my-crew" className="text-sm font-medium">
           Only my crew{" "}

@@ -57,7 +57,7 @@ export const LegendPanel: React.FC<Props> = ({
               className="inline-block h-2.5 w-2.5 rounded-full"
               style={{ backgroundColor: color }}
             />
-            <span className="truncate max-w-[10rem]" title={label}>
+            <span className="truncate max-w-40" title={label}>
               {label}
             </span>
           </div>

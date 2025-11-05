@@ -27,32 +27,51 @@ function noStoreHeaders() {
 const BodySchema = z.object({
   // either (crewName, departmentName) or just crewName if unique in your DB
   crewName: z.string().min(1),
-  departmentName: z.string().optional(), // optional if your crew names are unique
+  departmentName: z.string().optional(), // optional if crew names are unique
   teamName: z.string().optional(), // optional; if omitted, we set only CrewID
 });
 
-async function getUserKey() {
+/* ---------- Types for query rows ---------- */
+type UserTeamRow = {
+  crewName: string | null;
+  departmentName: string | null;
+  teamName: string | null;
+};
+
+type CrewIdRow = {
+  CrewID: number;
+};
+
+type TeamIdRow = {
+  TeamID: number;
+};
+
+/* ---------- Session helper without `any` ---------- */
+async function getUserKey(): Promise<string | null> {
   const session = await getServerSession(authOptions);
   if (!session) return null;
-  // Prefer email/UPN if available; else fall back to display name
-  const email = (session.user as any)?.email as string | undefined;
-  const name = session.user?.name as string | undefined;
-  return email ?? name ?? null;
+  const email = session.user?.email?.trim();
+  if (email) return email;
+  const name = session.user?.name?.trim();
+  return name ?? null;
 }
 
 /* ---------------- GET: return my mapping ---------------- */
 export async function GET() {
   try {
     const userKey = await getUserKey();
-    if (!userKey)
+    if (!userKey) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     const pool = await sql.connect(config);
-    const res = await pool.request().input("uk", sql.NVarChar, userKey).query(`
+
+    const res = await pool.request().input("uk", sql.NVarChar, userKey)
+      .query<UserTeamRow>(`
         SELECT
-          g.CrewName     AS crewName,
+          g.CrewName       AS crewName,
           g.DepartmentName AS departmentName,
-          t.TeamName     AS teamName
+          t.TeamName       AS teamName
         FROM dbo.tUserTeams u
         JOIN dbo.tGanntCrews g ON g.CrewID = u.CrewID
         LEFT JOIN dbo.tTeams t ON t.TeamID = u.TeamID
@@ -65,6 +84,8 @@ export async function GET() {
         { headers: noStoreHeaders() }
       );
     }
+
+    // recordset[0] is now strongly typed as UserTeamRow
     return NextResponse.json(res.recordset[0], { headers: noStoreHeaders() });
   } catch (err) {
     console.error("GET /api/my-team error:", err);
@@ -76,8 +97,9 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const userKey = await getUserKey();
-    if (!userKey)
+    if (!userKey) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     const body = await req.json();
     const parsed = BodySchema.safeParse(body);
@@ -99,11 +121,11 @@ export async function POST(req: NextRequest) {
       crewReq.input("dept", sql.NVarChar, departmentName);
       crewSql += ` AND DepartmentName=@dept`;
     }
-    const crewRes = await crewReq.query(crewSql + `;`);
+    const crewRes = await crewReq.query<CrewIdRow>(crewSql + `;`);
     if (crewRes.recordset.length === 0) {
       return NextResponse.json({ error: "Crew not found" }, { status: 404 });
     }
-    const crewId = crewRes.recordset[0].CrewID as number;
+    const crewId = crewRes.recordset[0].CrewID;
 
     // Resolve TeamID (optional, must belong to CrewID)
     let teamId: number | null = null;
@@ -112,20 +134,21 @@ export async function POST(req: NextRequest) {
         .request()
         .input("crewId", sql.Int, crewId)
         .input("teamName", sql.NVarChar, teamName)
-        .query(
+        .query<TeamIdRow>(
           `SELECT TeamID FROM dbo.tTeams WHERE CrewID=@crewId AND TeamName=@teamName;`
         );
+
       if (tRes.recordset.length === 0) {
         return NextResponse.json(
           { error: "Team not found for this crew" },
           { status: 404 }
         );
       }
-      teamId = tRes.recordset[0].TeamID as number;
+      teamId = tRes.recordset[0].TeamID;
     }
 
     // Upsert
-    const upsert = await pool
+    await pool
       .request()
       .input("uk", sql.NVarChar, userKey)
       .input("crewId", sql.Int, crewId)
@@ -136,8 +159,7 @@ export async function POST(req: NextRequest) {
         WHEN MATCHED THEN
           UPDATE SET CrewID = src.CrewID, TeamID = src.TeamID
         WHEN NOT MATCHED THEN
-          INSERT (UserKey, CrewID, TeamID) VALUES (src.UserKey, src.CrewID, src.TeamID)
-        OUTPUT inserted.UserKey;
+          INSERT (UserKey, CrewID, TeamID) VALUES (src.UserKey, src.CrewID, src.TeamID);
       `);
 
     return NextResponse.json({ ok: true }, { headers: noStoreHeaders() });
@@ -151,8 +173,9 @@ export async function POST(req: NextRequest) {
 export async function DELETE() {
   try {
     const userKey = await getUserKey();
-    if (!userKey)
+    if (!userKey) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     const pool = await sql.connect(config);
     await pool

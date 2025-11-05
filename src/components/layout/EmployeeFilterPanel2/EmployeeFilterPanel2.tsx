@@ -19,10 +19,11 @@ import OnlyMyCrewSwitch from "./OnlyMyCrewSwitch";
 import UnitsCrewsTree from "./UnitsCrewsTree";
 import LocationsFilter from "./LocationsFilter";
 import PanelActions from "./PanelActions";
+import SpecialFilters from "./SpecialFilters";
 import { useFilterOptions } from "./useFilterOptions";
 import { useEmployeeDirectoryFilters } from "./useEmployeeDirectoryFilters";
+import { useSpecialFilters } from "./useSpecialFilters";
 
-/** Minimal shapes aligned to your page types */
 export type Employee = {
   ACHDEmpNo: string;
   name: string;
@@ -35,6 +36,8 @@ export type Employee = {
   prdept: string;
   location: string;
   reportsto: string;
+  birthDate?: string | null;
+  hireDate?: string | null;
 };
 
 export type CrewGroup = {
@@ -66,6 +69,9 @@ type Props = {
     | "ghost"
     | "destructive";
   triggerClassName?: string;
+  onSpecialPredicateChangeAction?: (
+    predicate: (emp: Employee) => boolean
+  ) => void; // <-- already added
 };
 
 export default function EmployeeFilterPanel({
@@ -78,6 +84,7 @@ export default function EmployeeFilterPanel({
   triggerSize = "default",
   triggerVariant = "outline",
   triggerClassName,
+  onSpecialPredicateChangeAction,
 }: Props) {
   const [open, setOpen] = React.useState(defaultOpen);
 
@@ -96,14 +103,91 @@ export default function EmployeeFilterPanel({
     clearAll,
   } = useEmployeeDirectoryFilters({
     groups,
-    onChangeAction: onChangeAction,
+    onChangeAction,
     hardDefaultToMyCrew,
   });
+
+  // ✅ Special Filters Hook
+  const {
+    showBirthdays,
+    setShowBirthdays,
+    showNewHires,
+    setShowNewHires,
+    showAnniversaries,
+    setShowAnniversaries,
+    matchesSpecialFilters,
+  } = useSpecialFilters();
+
+  React.useEffect(() => {
+    setShowBirthdays(true);
+  }, [setShowBirthdays]);
+
+  // For testing special filters. You should see the flags flip correctly. The results of the probe should change when toggling relevant filters.
+  React.useEffect(() => {
+    console.log("[SpecialFlags]", {
+      showBirthdays,
+      showNewHires,
+      showAnniversaries,
+    });
+  }, [showBirthdays, showNewHires, showAnniversaries]);
+
+  // Probe one employee (optional)
+  React.useEffect(() => {
+    const probe = groups?.[0]?.members?.[0];
+    if (probe) {
+      console.log(
+        "[SpecialPredicate probe]",
+        probe.name,
+        matchesSpecialFilters(probe)
+      );
+    }
+  }, [groups, matchesSpecialFilters]);
+
+  React.useEffect(() => {
+    console.log(
+      "%c[Panel] calling onSpecialPredicateChangeAction",
+      "color:#149386",
+      { hasCallback: !!onSpecialPredicateChangeAction }
+    );
+
+    onSpecialPredicateChangeAction?.(matchesSpecialFilters);
+  }, [matchesSpecialFilters, onSpecialPredicateChangeAction]);
 
   const { unitsList, crewsByUnit, allCrewNames, locationsList } =
     useFilterOptions(groups, allowedCrews);
 
-  // Toggle helpers (same logic you had before)
+  const [expandedUnits, setExpandedUnits] = React.useState<string[]>(
+    () => selectedUnits
+  );
+
+  // ✅ Combine all filters for final employee filtering
+  const filteredGroups = React.useMemo(() => {
+    return groups.map((group) => ({
+      ...group,
+      members: group.members.filter((emp) => {
+        // Unit/Crew/Location filters
+        const unitMatch =
+          selectedUnits.length === 0 || selectedUnits.includes(group.unit);
+        const crewMatch =
+          selectedCrews.length === 0 || selectedCrews.includes(group.crew);
+        const locationMatch =
+          selectedLocations.length === 0 ||
+          selectedLocations.includes(emp.location);
+
+        // Special filters
+        const specialMatch = matchesSpecialFilters(emp);
+
+        return unitMatch && crewMatch && locationMatch && specialMatch;
+      }),
+    }));
+  }, [
+    groups,
+    selectedUnits,
+    selectedCrews,
+    selectedLocations,
+    matchesSpecialFilters,
+  ]);
+
   function toggleUnit(unitName: string, next: boolean) {
     const children = crewsByUnit.get(unitName) ?? [];
     setSelectedUnits((prev) => {
@@ -128,7 +212,6 @@ export default function EmployeeFilterPanel({
       return Array.from(set);
     });
 
-    // ensure parent unit reflects any child selection
     const parentUnit = groups.find((g) => g.crew === crewName)?.unit;
     if (parentUnit) {
       const siblings = crewsByUnit.get(parentUnit) ?? [];
@@ -184,7 +267,7 @@ export default function EmployeeFilterPanel({
             <OnlyMyCrewSwitch
               onlyMyCrew={onlyMyCrew}
               myCrew={myCrew}
-              onChange={(val) => {
+              onChangeAction={(val) => {
                 setOnlyMyCrew(val);
                 if (val && myCrew) {
                   setSelectedCrews([myCrew]);
@@ -193,32 +276,53 @@ export default function EmployeeFilterPanel({
                 }
               }}
             />
-            <Separator className="my-4 bg-gray-300 h-[2px]" />
+            <Separator className="my-4 bg-gray-300 h-0.5" />
+
             {/* Units & Crews */}
             <section className="flex-1 min-h-0">
-              <h4 className="text-sm font-semibold mb-2">Units &amp; Crews</h4>
-              {/* Scroll inside the tree */}
+              <h4 className="text-sm font-semibold mb-2">Depts &amp; Crews</h4>
               <ScrollArea className="h-full pr-2">
                 <UnitsCrewsTree
                   unitsList={unitsList}
                   crewsByUnit={crewsByUnit}
                   selectedCrewSet={selectedCrewSet}
-                  onToggleUnit={toggleUnit}
-                  onToggleCrew={toggleCrew}
+                  onToggleUnitAction={toggleUnit}
+                  onToggleCrewAction={toggleCrew}
+                  expandedUnits={expandedUnits}
+                  onExpandedChangeAction={setExpandedUnits}
                 />
               </ScrollArea>
             </section>
-            <Separator className="my-4 bg-gray-300 h-[2px]" />
+            <Separator className="my-4 bg-gray-300 h-0.5" />
 
             {/* Locations */}
             <LocationsFilter
               locationsList={locationsList}
               selectedLocations={selectedLocations}
-              onToggleLocation={toggleLocation}
+              onToggleLocationAction={toggleLocation}
             />
+
+            {/* Special Filters */}
+            <Separator className="my-4 bg-gray-300 h-0.5" />
+
+            <section>
+              <div className="grid grid-cols-2  gap-3 items-start">
+                <SpecialFilters
+                  showBirthdays={showBirthdays}
+                  showNewHires={showNewHires}
+                  showAnniversaries={showAnniversaries}
+                  onToggleBirthdaysAction={setShowBirthdays}
+                  onToggleNewHiresAction={setShowNewHires}
+                  onToggleAnniversariesAction={setShowAnniversaries}
+                />
+              </div>
+            </section>
           </div>
 
-          <PanelActions onClearAll={clearAll} onSelectAll={selectAll} />
+          <PanelActions
+            onClearAllAction={clearAll}
+            onSelectAllAction={selectAll}
+          />
         </SheetContent>
       </Sheet>
     </div>

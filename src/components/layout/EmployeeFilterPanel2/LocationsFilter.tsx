@@ -6,13 +6,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 type Props = {
   locationsList: string[];
   selectedLocations: string[];
-  onToggleLocation: (loc: string, next: boolean) => void;
+  onToggleLocationAction: (loc: string, next: boolean) => void;
 };
 
 export default function LocationsFilter({
   locationsList,
   selectedLocations,
-  onToggleLocation,
+  onToggleLocationAction,
 }: Props) {
   return (
     <section>
@@ -23,7 +23,7 @@ export default function LocationsFilter({
             <Checkbox
               id={`loc-${loc}`}
               checked={selectedLocations.includes(loc)}
-              onCheckedChange={(v) => onToggleLocation(loc, Boolean(v))}
+              onCheckedChange={(v) => onToggleLocationAction(loc, Boolean(v))}
             />
             <label htmlFor={`loc-${loc}`} className="text-sm">
               {loc}
