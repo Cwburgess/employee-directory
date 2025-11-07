@@ -2,7 +2,6 @@
 "use client";
 
 import * as React from "react";
-import type { Employee } from "./EmployeeFilterPanel2"; // optional typing help
 
 const MILESTONES = new Set([5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55]);
 

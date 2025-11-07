@@ -23,35 +23,7 @@ import SpecialFilters from "./SpecialFilters";
 import { useFilterOptions } from "./useFilterOptions";
 import { useEmployeeDirectoryFilters } from "./useEmployeeDirectoryFilters";
 import { useSpecialFilters } from "./useSpecialFilters";
-
-export type Employee = {
-  ACHDEmpNo: string;
-  name: string;
-  jobtitle: string;
-  workphone: string;
-  number: string;
-  email: string;
-  unit: string;
-  crew: string;
-  prdept: string;
-  location: string;
-  reportsto: string;
-  birthDate?: string | null;
-  hireDate?: string | null;
-};
-
-export type CrewGroup = {
-  unit: string;
-  crew: string;
-  members: Employee[];
-};
-
-export type EmployeeFilters = {
-  units: string[];
-  crews: string[];
-  locations: string[];
-  onlyMyCrew: boolean;
-};
+import type { Employee, CrewGroup, EmployeeFilters } from "./types";
 
 type Props = {
   groups: CrewGroup[];
@@ -119,7 +91,7 @@ export default function EmployeeFilterPanel({
   } = useSpecialFilters();
 
   React.useEffect(() => {
-    setShowBirthdays(true);
+    setShowBirthdays(false);
   }, [setShowBirthdays]);
 
   // For testing special filters. You should see the flags flip correctly. The results of the probe should change when toggling relevant filters.

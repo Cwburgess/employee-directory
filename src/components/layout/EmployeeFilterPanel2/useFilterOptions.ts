@@ -74,8 +74,13 @@ export function useFilterOptions(groups: CrewGroup[], allowedCrews?: string[]) {
       const allCrewNames = Array.from(allCrewsSet).sort(ciSort);
       const locationsList = Array.from(locationsSet).sort(ciSort);
 
-      return { unitsList, crewsByUnit, allCrewNames, locationsList };
-    }, [groups, allowedKey]);
+      return {
+        unitsList,
+        crewsByUnit,
+        allCrewNames,
+        locationsList,
+      };
+    }, [groups, allowedKey, allowedCrews]);
 
   return { unitsList, crewsByUnit, allCrewNames, locationsList };
 }

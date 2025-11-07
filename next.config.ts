@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  reactStrictMode: true,
+  distDir: "build", // Optional: custom build folder
+  output: "standalone", // Required for Azure App Service
 };
 
 export default nextConfig;

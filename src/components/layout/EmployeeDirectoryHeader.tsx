@@ -100,7 +100,7 @@ export default function EmployeeDirectoryHeader({
   const years = getAnniversaryNumber(today);
   const annivMsg =
     isAnniv && years > 0
-      ? `Happy ${years}${ordinalSuffix(years)} Anniversary ACHD!`
+      ? `Today is ACHD's ${years}${ordinalSuffix(years)} Anniversary!`
       : null;
 
   // 🔧 Search only updates the search state / callback, not special filters

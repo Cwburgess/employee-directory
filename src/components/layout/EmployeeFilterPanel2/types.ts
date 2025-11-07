@@ -10,6 +10,8 @@ export type Employee = {
   prdept: string;
   location: string;
   reportsto: string;
+  birthDate?: string | null;
+  hireDate?: string | null;
 };
 
 export type CrewGroup = {

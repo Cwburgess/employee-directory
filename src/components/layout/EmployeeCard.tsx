@@ -9,7 +9,7 @@ import { clean } from "utils/clean";
 import { toExtension } from "utils/phone";
 import { useEffect, useMemo } from "react";
 import { useInView } from "react-intersection-observer";
-import confetti from "canvas-confetti";
+//import confetti from "canvas-confetti";
 
 type Employee = {
   ACHDEmpNo: string;
@@ -232,7 +232,7 @@ export default function EmployeeCard({
     if (hire && !anniversaryToday) {
       const nextA = nextAnniversary(hire, today, /*excludeToday*/ true);
       const days = daysUntil(today, nextA);
-      if (days >= 1 && days <= 30) {
+      if (days >= 1 && days <= 14) {
         upcomingA = { date: nextA, days, years: yearsOnDate(hire, nextA) };
       }
     }
@@ -249,27 +249,27 @@ export default function EmployeeCard({
     };
   }, [employee.birthDate, employee.hireDate]);
 
-  // Confetti effect when card enters viewport and it's (actual or observed) birthday or anniversary
-  useEffect(() => {
-    if ((isBirthdayToday || isAnniversaryToday) && inView) {
-      const screenWidth = window.innerWidth;
-      const particleCount = Math.max(150, Math.floor(screenWidth / 10));
-      const scalar = Math.max(1.2, Math.min(screenWidth / 1000, 2));
+  // // Confetti effect when card enters viewport and it's (actual or observed) birthday or anniversary
+  // useEffect(() => {
+  //   if ((isBirthdayToday || isAnniversaryToday) && inView) {
+  //     const screenWidth = window.innerWidth;
+  //     const particleCount = Math.max(150, Math.floor(screenWidth / 10));
+  //     const scalar = Math.max(1.2, Math.min(screenWidth / 1000, 2));
 
-      const burst = () => {
-        confetti({
-          particleCount,
-          spread: 80,
-          origin: { y: 0.6 },
-          scalar,
-        });
-      };
+  //     const burst = () => {
+  //       confetti({
+  //         particleCount,
+  //         spread: 80,
+  //         origin: { y: 0.6 },
+  //         scalar,
+  //       });
+  //     };
 
-      burst();
-      setTimeout(burst, 300);
-      setTimeout(burst, 600);
-    }
-  }, [isBirthdayToday, isAnniversaryToday, inView]);
+  //     burst();
+  //     setTimeout(burst, 300);
+  //     setTimeout(burst, 600);
+  //   }
+  // }, [isBirthdayToday, isAnniversaryToday, inView]);
 
   // --- Styling priorities: Birthday > Anniversary > New Hire --------------
   const baseCardClasses =
@@ -360,8 +360,8 @@ export default function EmployeeCard({
 
               {/* New Hire (first 30 days) */}
               {isNewHire && (
-                <span className="block text-xs font-bold text-[#A76500]">
-                  🆕 Welcome aboard!
+                <span className="inline-block px-2 py-1 text-xs font-bold text-white bg-[#A76500] rounded">
+                  🆕 Welcome to the ACHD family!
                 </span>
               )}
 
@@ -377,7 +377,7 @@ export default function EmployeeCard({
               {/* Upcoming Anniversary (within 30 days, excludes today) */}
               {!isAnniversaryToday && upcomingAnniversary && (
                 <span className="block text-xs font-semibold text-[#0F6F65]">
-                  🎉 Anniversary in {upcomingAnniversary.days} day
+                  🎉 ACHD Anniversary in {upcomingAnniversary.days} day
                   {upcomingAnniversary.days === 1 ? "" : "s"} (
                   {formatShortDate(upcomingAnniversary.date)}
                   {upcomingAnniversary.years >= 5 &&

@@ -5,25 +5,11 @@ import EmployeeDirectoryHeader from "@/components/layout/EmployeeDirectoryHeader
 import EmployeeCard from "@/components/layout/EmployeeCard";
 import { Loader2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import SpecialFiltersPlayground from "@/components/dev/SpecialFiltersPlayground";
-
-/* ---------------- Types aligned to your API ---------------- */
-
-type Employee = {
-  ACHDEmpNo: string;
-  name: string;
-  jobtitle: string;
-  workphone: string;
-  number: string;
-  email: string;
-  unit: string;
-  crew: string;
-  prdept: string;
-  location: string;
-  reportsto: string;
-  birthDate?: string | null;
-  hireDate?: string | null;
-};
+import type {
+  Employee,
+  CrewGroup,
+  EmployeeFilters,
+} from "@/components/layout/EmployeeFilterPanel2/index";
 
 /* ---------- Name parsing helpers for robust last-name sort ---------- */
 
@@ -63,6 +49,14 @@ export default function EmployeeDirectoryPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+
+  const [filters, setFilters] = useState<EmployeeFilters>({
+    units: [],
+    crews: [],
+    locations: [],
+    onlyMyCrew: false,
+  });
+
   //const [specialPredicate, setSpecialPredicate] = useState(() => () => true);
   const [specialPredicate, setSpecialPredicate] = useState<
     (e: Employee) => boolean
@@ -76,12 +70,12 @@ export default function EmployeeDirectoryPage() {
   }, [specialPredicate]);
 
   const [selectedLetter, setSelectedLetter] = useState<string | null>(null);
-  const [filters, setFilters] = useState<EmployeeFilters>({
-    units: [],
-    crews: [],
-    locations: [],
-    onlyMyCrew: false,
-  });
+  // const [filters, setFilters] = useState<EmployeeFilters>({
+  //   units: [],
+  //   crews: [],
+  //   locations: [],
+  //   onlyMyCrew: false,
+  // });
 
   /* ---------------- Fetch grouped employee data (once) ---------------- */
 
@@ -110,26 +104,35 @@ export default function EmployeeDirectoryPage() {
 
   /* ---------------- Apply Unit/Crew/Location filters client-side ---------------- */
   // Use the safePredicate in your memo
+
   const filteredGroups = useMemo(() => {
     const uSet = new Set(filters.units);
-    const cSet = new Set(filters.crews);
     const lSet = new Set(filters.locations);
 
-    return (data as CrewGroup[])
-      .map((g) => {
-        const unitOk = uSet.size ? uSet.has(g.unit) : true;
-        const crewOk = cSet.size ? cSet.has(g.crew) : true;
-        if (!unitOk || !crewOk) return null;
+    // Create a map to group employees by unit
+    const unitMap = new Map<string, Employee[]>();
 
-        const members = (g.members || []).filter((m) => {
-          const locOk = lSet.size ? lSet.has(m.location || "") : true;
-          const specialOk = safePredicate(m); // 👈 safe
-          return locOk && specialOk;
-        });
+    for (const group of data) {
+      const unit = group.unit;
+      if (uSet.size && !uSet.has(unit)) continue;
 
-        return members.length ? { ...g, members } : null;
-      })
-      .filter(Boolean) as CrewGroup[];
+      for (const member of group.members || []) {
+        const locOk = lSet.size ? lSet.has(member.location || "") : true;
+        const specialOk = safePredicate(member);
+        if (!locOk || !specialOk) continue;
+
+        if (!unitMap.has(unit)) {
+          unitMap.set(unit, []);
+        }
+        unitMap.get(unit)!.push(member);
+      }
+    }
+
+    // Convert map to array of groups
+    return Array.from(unitMap.entries()).map(([unit, members]) => ({
+      unit,
+      members,
+    }));
   }, [data, filters, safePredicate]);
 
   /* ---------------- LIST view derivations (use filteredGroups) ---------------- */
@@ -185,7 +188,7 @@ export default function EmployeeDirectoryPage() {
       <EmployeeDirectoryHeader
         layout={layout}
         onLayoutChangeAction={setLayout}
-        groups={data}
+        groups={data} // pass the grouped data the panel uses for options
         onFiltersChangeAction={setFilters}
         onSearchChangeAction={setSearchQuery} // ✅ this must match the prop name
         showAlphaBar={layout === "list"}
@@ -194,7 +197,13 @@ export default function EmployeeDirectoryPage() {
         onLetterChangeAction={setSelectedLetter}
         sticky
         fullBleed
-        onSpecialPredicateChangeAction={setSpecialPredicate}
+        // ✅ The key: wrap the setter so React stores the function value
+        //onSpecialPredicateChangeAction={setSpecialPredicate}
+
+        onSpecialPredicateChangeAction={(pred) => {
+          console.log("%c[Page] storing special predicate", "color:#149386");
+          setSpecialPredicate(() => pred);
+        }}
       />
 
       {/* Loading */}
@@ -232,18 +241,18 @@ export default function EmployeeDirectoryPage() {
         </div>
       ) : layout === "grid" ? (
         /* ------------------------- GRID LAYOUT (filtered) ------------------------- */
+
         <div className="space-y-10">
           {filteredGroups.map((group) => {
-            const groupKey = `${group.unit}-${group.crew}`;
+            const groupKey = `${group.unit}`;
             return (
               <section key={groupKey}>
                 <header className="mb-4">
                   <h2 className="text-xl font-semibold">
-                    {group.unit} — {group.crew} ({group.members.length})
+                    {group.unit} ({group.members.length})
                   </h2>
                 </header>
 
-                {/* Fixed: constrain card width with inline gridTemplateColumns */}
                 <div
                   className="grid gap-4 justify-center"
                   style={{
@@ -254,9 +263,7 @@ export default function EmployeeDirectoryPage() {
                   {(group.members || []).map((employee) => {
                     const empKey =
                       employee.ACHDEmpNo ||
-                      `${group.unit}-${group.crew}-${
-                        employee.email || employee.name
-                      }`;
+                      `${group.unit}-${employee.email || employee.name}`;
                     return (
                       <div key={empKey}>
                         <EmployeeCard employee={employee} avatarSize="lg" />
