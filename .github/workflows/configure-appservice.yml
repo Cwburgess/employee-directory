@@ -1,0 +1,68 @@
+name: One-time Configure Azure App Service (Next.js + Entra ID + SQL)
+
+on:
+  workflow_dispatch:
+
+env:
+  AZURE_RESOURCE_GROUP: employee-directory_group-9e50
+  AZURE_WEBAPP_NAME: employee-directory
+  INTRANET_HOSTNAME: employee-directory-dee9abc4adeeghew.westus2-01.azurewebsites.net
+  LINUX_FX_NODE: "NODE|22-lts" # Recommended LTS to avoid Node 20 EOL
+
+jobs:
+  configure:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Set Linux runtime to Node 22 LTS
+        run: |
+          az webapp config set \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --name "$AZURE_WEBAPP_NAME" \
+            --linux-fx-version "$LINUX_FX_NODE"
+
+      - name: Configure NextAuth / Entra ID app settings
+        run: |
+          az webapp config appsettings set \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --name "$AZURE_WEBAPP_NAME" \
+            --settings \
+              NODE_ENV=production \
+              NEXTAUTH_URL="https://$INTRANET_HOSTNAME" \
+              NEXTAUTH_SECRET='${{ secrets.NEXTAUTH_SECRET }}' \
+              AZURE_AD_CLIENT_ID='${{ secrets.AZURE_AD_CLIENT_ID }}' \
+              AZURE_AD_CLIENT_SECRET='${{ secrets.AZURE_AD_CLIENT_SECRET }}' \
+              AZURE_AD_TENANT_ID='${{ secrets.AZURE_TENANT_ID }}'
+
+      - name: Configure SQL Azure connection string
+        run: |
+          az webapp config connection-string set \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --name "$AZURE_WEBAPP_NAME" \
+            --connection-string-type SQLAzure \
+            --settings DefaultConnection='${{ secrets.AZURE_SQL_CONNECTION_STRING }}'
+
+      - name: Ensure Next.js standalone startup command
+        run: |
+          az webapp config set \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --name "$AZURE_WEBAPP_NAME" \
+            --startup-file "node server.js"
+
+      - name: (Optional) Route all outbound traffic via VNet Integration
+        run: |
+          az resource update \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --name "$AZURE_WEBAPP_NAME" \
+            --resource-type "Microsoft.Web/sites" \
+            --set properties.vnetRouteAllEnabled=true
