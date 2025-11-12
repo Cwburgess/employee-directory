@@ -281,7 +281,7 @@ export default function EmployeeCard({
     ? "bg-[#149386] text-white" // ACHD teal
     : "bg-background";
 
-  // Force the job title to be white on pink/teal for readability
+  // Force the job title to be white on pink/teal for readability.
   const jobTitleClass = [
     "text-sm truncate",
     isBirthdayToday || isAnniversaryToday
