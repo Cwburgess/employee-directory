@@ -59,6 +59,15 @@ jobs:
             --name "$AZURE_WEBAPP_NAME" \
             --startup-file "node server.js"
 
+      - name: Create deploy artifact
+        run: |
+          rm -rf deploy
+          mkdir -p deploy/.next/static
+          cp -r .next/standalone/* deploy/
+          cp -r .next/static deploy/.next/static
+          if [ -d "public" ]; then cp -r public deploy/public; fi
+          cd deploy && zip -r ../release.zip .
+
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
