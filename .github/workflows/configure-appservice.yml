@@ -59,6 +59,12 @@ jobs:
             --name "$AZURE_WEBAPP_NAME" \
             --startup-file "node server.js"
 
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          package: release.zip
+
       - name: (Optional) Route all outbound traffic via VNet Integration
         run: |
           az resource update \
