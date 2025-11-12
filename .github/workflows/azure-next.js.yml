@@ -32,6 +32,17 @@ jobs:
           NODE_ENV: production
         run: npm run build
 
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy to Azure WebApp
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: "your-app-service-name"
+          package: "./build/standalone"
+
       - name: Package standalone output
         run: |
 

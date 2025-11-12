@@ -13,7 +13,7 @@ import type {
 
 /* ---------- Name parsing helpers for robust last-name sort ---------- */
 
-// Handles "Last, First Middle" or "First Middle Last", drops common suffixes
+// Handles "Last, First Middle" or "First Middle Last", drops common suffixes.
 function splitNameParts(fullName: string) {
   const safe = (fullName || "").trim().replace(/\s+/g, " ");
   if (!safe) return { first: "", last: "" };
