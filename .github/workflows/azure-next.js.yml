@@ -32,31 +32,13 @@ jobs:
           NODE_ENV: production
         run: npm run build
 
-      - name: Login to Azure
-        uses: azure/login@v1
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-      - name: Deploy to Azure WebApp
-        uses: azure/webapps-deploy@v2
-        with:
-          app-name: "your-app-service-name"
-          package: "./build/standalone"
-
       - name: Package standalone output
         run: |
-
           rm -rf deploy
           mkdir deploy
           cp -r build/standalone/* deploy/
-          cp -r public deploy/public
           if [ -d "public" ]; then cp -r public deploy/public; fi
           cd deploy && zip -r ../release.zip .
-
-        #  rm -rf deploy
-        #   mkdir -p deploy/.next/static
-        #   cp -r .next/standalone/* deploy/
-        #   cp -r .next/static deploy/.next/static
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
