@@ -7,7 +7,7 @@ on:
 
 env:
   AZURE_WEBAPP_NAME: employee-directory
-  NODE_VERSION: "22.x"
+  NODE_VERSION: "20.x"
 
 jobs:
   build:
@@ -34,22 +34,44 @@ jobs:
 
       - name: Package standalone output
         run: |
+          set -e
           rm -rf deploy
           mkdir -p deploy/.next
-          # Copy standalone bundle (contains server.js and pruned node_modules)
-          cp -r build/standalone/* deploy/
 
-          # Copy static assets to the path Next expects at runtime
-          cp -r build/static deploy/.next/static
+          # 1) Copy standalone server (server.js + pruned node_modules)
+          cp -r .next/standalone/* deploy/
 
-          # Copy BUILD_ID so Next can validate asset versions
-          if [ -f build/BUILD_ID ]; then cp build/BUILD_ID deploy/.next/BUILD_ID; fi
+          # 2) Copy browser assets and BUILD_ID where Next expects them
+          cp -r .next/static deploy/.next/static
+          if [ -f .next/BUILD_ID ]; then cp .next/BUILD_ID deploy/.next/BUILD_ID; fi
 
-          # (Optional) public assets
+          # 3) Optional: public assets
           if [ -d "public" ]; then cp -r public deploy/public; fi
 
-          # Zip it
+          # 4) Debug listing (super helpful if something goes missing)
+          echo "=== Deploy tree (top) ==="
+          find deploy -maxdepth 2 -type d -print
+          echo "=== .next contents ==="
+          ls -la deploy/.next | sed -n '1,200p'
+          echo "=== .next/static top ==="
+          ls -la deploy/.next/static | sed -n '1,200p'
+
+          # 5) Zip for publish
           cd deploy && zip -r ../release.zip .
+
+      - name: Assert Next build produced client assets
+        run: |
+          if [ -d ".next/static" ]; then
+          echo "Found .next/static (default distDir)."
+          elif [ -d "build/static" ]; then
+          echo "Found build/static (custom distDir)."
+          else
+          echo "ERROR: No client assets folder (.next/static or build/static) found after build."
+          echo "Listing .next and build for debugging:"
+          ls -la .next || true
+          ls -la build || true
+          exit 1
+          fi
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
