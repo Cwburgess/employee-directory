@@ -218,7 +218,7 @@ export default function EmployeeCard({
       }
     }
 
-    // ##Upcoming windows (within 30 days), excluding "today"
+    // Upcoming windows (within 30 days), excluding "today"
     let upcomingB: { date: Date; days: number } | null = null;
     if (birth && !birthdayToday) {
       const nextB = nextObservedBirthday(birth, today, /*excludeToday*/ true);
