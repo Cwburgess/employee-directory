@@ -35,9 +35,20 @@ jobs:
       - name: Package standalone output
         run: |
           rm -rf deploy
-          mkdir deploy
+          mkdir -p deploy/.next
+          # Copy standalone bundle (contains server.js and pruned node_modules)
           cp -r build/standalone/* deploy/
+
+          # Copy static assets to the path Next expects at runtime
+          cp -r build/static deploy/.next/static
+
+          # Copy BUILD_ID so Next can validate asset versions
+          if [ -f build/BUILD_ID ]; then cp build/BUILD_ID deploy/.next/BUILD_ID; fi
+
+          # (Optional) public assets
           if [ -d "public" ]; then cp -r public deploy/public; fi
+
+          # Zip it
           cd deploy && zip -r ../release.zip .
 
       - name: Upload artifact
