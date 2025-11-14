@@ -7,7 +7,7 @@ on:
 
 env:
   AZURE_WEBAPP_NAME: employee-directory # <-- your App Service name
-  AZURE_RESOURCE_GROUP: <YOUR-RESOURCE-GROUP> # <-- your Resource Group
+  AZURE_RESOURCE_GROUP: employee-directory_group-9e50 # <-- your Resource Group
   NODE_VERSION: "20.x"
 
 jobs:
