@@ -201,7 +201,7 @@ export default function EmployeeCard({
 
     const birthdayToday = isBirthdayTodayOrObserved(today, birth);
 
-    // Anniversary: actual date only. d443
+    // Anniversary: actual date only. d44
     let anniversaryToday = false;
     let annivYearsToday: number | null = null;
     if (hire) {
