@@ -145,7 +145,7 @@ function nextAnniversary(hire: Date, today: Date, excludeToday = true): Date {
   return nextYear;
 }
 
-/** Years of service on a given anniversary date ddd */
+/** Years of service on a given anniversary date d */
 function yearsOnDate(hire: Date, onDate: Date) {
   return onDate.getFullYear() - hire.getFullYear();
 }

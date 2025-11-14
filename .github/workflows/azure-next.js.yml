@@ -6,8 +6,8 @@ on:
   workflow_dispatch:
 
 env:
-  AZURE_WEBAPP_NAME: employee-directory # <-- your App Service name
-  AZURE_RESOURCE_GROUP: employee-directory_group-9e50 # <-- your Resource Group
+  AZURE_WEBAPP_NAME: employee-directory # App Service name
+  AZURE_RESOURCE_GROUP: employee-directory_group-9e50 # Resource Group
   NODE_VERSION: "20.x"
 
 jobs:
@@ -97,6 +97,7 @@ jobs:
           path: .
 
       - name: Verify package presence
+        shell: bash
         run: |
           set -euo pipefail
           ls -la
@@ -111,66 +112,54 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      # ---- Workaround for Azure CLI + MSAL cache regression ----
-      # Clear MSAL HTTP/token caches to avoid 'NormalizedResponse' unpickle error
-      - name: Purge MSAL cache in CLI container
-        uses: azure/cli@v2
-        with:
-          # Pin to a stable CLI version (avoid the regression range)
-          azcliversion: 2.70.0
-          inlineScript: |
-            set -euo pipefail
-            rm -f ~/.azure/msal_http_cache.bin ~/.azure/msal_token_cache.json ~/.azure/azureProfile.json || true
-            az --version
+      # --- Workaround: clear MSAL cache on the runner to avoid NormalizedResponse unpickle issue ---
+      - name: Purge MSAL cache (runner)
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f ~/.azure/msal_http_cache.bin ~/.azure/msal_token_cache.json ~/.azure/azureProfile.json || true
+          az --version
 
-      - name: Print subscription & confirm web app exists
-        uses: azure/cli@v2
-        with:
-          azcliversion: 2.70.0
-          inlineScript: |
-            set -euo pipefail
-            az account show -o table
-            echo "RG=${{ env.AZURE_RESOURCE_GROUP }}"
-            echo "APP=${{ env.AZURE_WEBAPP_NAME }}"
-            az webapp show -g "${{ env.AZURE_RESOURCE_GROUP }}" -n "${{ env.AZURE_WEBAPP_NAME }}" -o table
+      - name: Print subscription & confirm web app exists (runner)
+        shell: bash
+        run: |
+          set -euo pipefail
+          az account show -o table
+          echo "RG=${{ env.AZURE_RESOURCE_GROUP }}"
+          echo "APP=${{ env.AZURE_WEBAPP_NAME }}"
+          az webapp show -g "${{ env.AZURE_RESOURCE_GROUP }}" -n "${{ env.AZURE_WEBAPP_NAME }}" -o table
 
-      - name: Ensure Run-From-Package app settings
-        uses: azure/cli@v2
-        with:
-          azcliversion: 2.70.0
-          inlineScript: |
-            set -euo pipefail
-            az webapp config appsettings set \
-              --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
-              --name "${{ env.AZURE_WEBAPP_NAME }}" \
-              --settings WEBSITE_RUN_FROM_PACKAGE=1 SCM_DO_BUILD_DURING_DEPLOYMENT=false \
-              --output table
-            echo "Current app settings (filtered):"
-            az webapp config appsettings list \
-              --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
-              --name "${{ env.AZURE_WEBAPP_NAME }}" \
-              --query "[?name=='WEBSITE_RUN_FROM_PACKAGE'||name=='SCM_DO_BUILD_DURING_DEPLOYMENT']" -o table
+      - name: Ensure Run-From-Package app settings (runner)
+        shell: bash
+        run: |
+          set -euo pipefail
+          az webapp config appsettings set \
+            --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
+            --name "${{ env.AZURE_WEBAPP_NAME }}" \
+            --settings WEBSITE_RUN_FROM_PACKAGE=1 SCM_DO_BUILD_DURING_DEPLOYMENT=false \
+            --output table
+          echo "Current app settings (filtered):"
+          az webapp config appsettings list \
+            --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
+            --name "${{ env.AZURE_WEBAPP_NAME }}" \
+            --query "[?name=='WEBSITE_RUN_FROM_PACKAGE'||name=='SCM_DO_BUILD_DURING_DEPLOYMENT']" -o table
 
-      - name: Zip Deploy (Run-From-Package)
-        uses: azure/cli@v2
-        with:
-          azcliversion: 2.70.0
-          inlineScript: |
-            set -euo pipefail
-            echo "Deploying release.zip via Zip Deploy..."
-            az webapp deployment source config-zip \
-              --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
-              --name "${{ env.AZURE_WEBAPP_NAME }}" \
-              --src release.zip --verbose
+      - name: Zip Deploy (Run-From-Package) (runner)
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Deploying release.zip via Zip Deploy..."
+          az webapp deployment source config-zip \
+            --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
+            --name "${{ env.AZURE_WEBAPP_NAME }}" \
+            --src release.zip --verbose
 
-      - name: Restart app and warm up
-        uses: azure/cli@v2
-        with:
-          azcliversion: 2.70.0
-          inlineScript: |
-            set -euo pipefail
-            az webapp restart --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" --name "${{ env.AZURE_WEBAPP_NAME }}"
-            HOST=$(az webapp show -g "${{ env.AZURE_RESOURCE_GROUP }}" -n "${{ env.AZURE_WEBAPP_NAME }}" --query defaultHostName -o tsv)
-            echo "App hostname: https://$HOST"
-            echo "Warming up build id endpoint:"
-            curl -sS -I "https://$HOST/_next/static/BUILD_ID" || true
+      - name: Restart app and warm up (runner)
+        shell: bash
+        run: |
+          set -euo pipefail
+          az webapp restart --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" --name "${{ env.AZURE_WEBAPP_NAME }}"
+          HOST=$(az webapp show -g "${{ env.AZURE_RESOURCE_GROUP }}" -n "${{ env.AZURE_WEBAPP_NAME }}" --query defaultHostName -o tsv)
+          echo "App hostname: https://$HOST"
+          echo "Warming up build id endpoint:"
+          curl -sS -I "https://$HOST/_next/static/BUILD_ID" || true
