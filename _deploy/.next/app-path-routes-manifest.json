@@ -1,0 +1,13 @@
+{
+  "/_not-found/page": "/_not-found",
+  "/favicon.ico/route": "/favicon.ico",
+  "/api/auth/[...nextauth]/route": "/api/auth/[...nextauth]",
+  "/api/crews/route": "/api/crews",
+  "/api/employee-directory/[empId]/route": "/api/employee-directory/[empId]",
+  "/api/my-crew/route": "/api/my-crew",
+  "/api/employee-directory/route": "/api/employee-directory",
+  "/api/my-team/route": "/api/my-team",
+  "/@modal/(.)[empId]/page": "/(.)[empId]",
+  "/[empId]/page": "/[empId]",
+  "/page": "/"
+}

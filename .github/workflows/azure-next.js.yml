@@ -30,13 +30,12 @@ jobs:
       - name: Create deploy folder
         run: |
           rm -rf _deploy
-          mkdir -p _deploy
+          mkdir -p _deploy/.next
           # 1) Copy standalone server and its node_modules
           cp -R .next/standalone/* _deploy/
           # 2) Copy static assets next to the server
-          mkdir -p _deploy/.next
+          cp -R .next/standalone/* _deploy/
           cp -R .next/static _deploy/.next/
-          # 3) Copy public assets
           if [ -d public ]; then cp -R public _deploy/; fi
 
       - name: Zip artifact

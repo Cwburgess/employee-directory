@@ -1,0 +1,13 @@
+{
+  "/_not-found/page": "app/_not-found/page.js",
+  "/favicon.ico/route": "app/favicon.ico/route.js",
+  "/api/auth/[...nextauth]/route": "app/api/auth/[...nextauth]/route.js",
+  "/api/crews/route": "app/api/crews/route.js",
+  "/api/employee-directory/[empId]/route": "app/api/employee-directory/[empId]/route.js",
+  "/api/my-crew/route": "app/api/my-crew/route.js",
+  "/api/employee-directory/route": "app/api/employee-directory/route.js",
+  "/api/my-team/route": "app/api/my-team/route.js",
+  "/@modal/(.)[empId]/page": "app/@modal/(.)[empId]/page.js",
+  "/[empId]/page": "app/[empId]/page.js",
+  "/page": "app/page.js"
+}
